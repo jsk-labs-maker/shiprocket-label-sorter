@@ -158,16 +158,28 @@ def api_authenticate(email: str, password: str) -> dict:
     return response.json()
 
 
-def api_get_orders(token: str, status: str = "new", per_page: int = 50, days: int = 7) -> dict:
-    """Fetch orders by status, filtered to last N days."""
+def api_get_orders(token: str, status: str = "new", per_page: int = 50, date_filter: str = "7") -> dict:
+    """Fetch orders by status, filtered by date range."""
     from datetime import datetime, timedelta
     
     url = "https://apiv2.shiprocket.in/v1/external/orders"
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     
-    # Calculate date range (last N days)
-    to_date = datetime.now().strftime("%Y-%m-%d")
-    from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    # Calculate date range based on filter
+    today = datetime.now()
+    
+    if date_filter == "today":
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif date_filter == "yesterday":
+        yesterday = today - timedelta(days=1)
+        from_date = yesterday.strftime("%Y-%m-%d")
+        to_date = yesterday.strftime("%Y-%m-%d")
+    else:
+        # Numeric days (7, 14, 30)
+        days = int(date_filter)
+        from_date = (today - timedelta(days=days)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
     
     params = {
         "filter": status, 
@@ -319,16 +331,23 @@ with tab2:
                 format_func=lambda x: x.replace("_", " ").title()
             )
         with col2:
-            days_filter = st.selectbox(
+            date_options = {
+                "today": "Today",
+                "yesterday": "Yesterday", 
+                "7": "Last 7 days",
+                "14": "Last 14 days",
+                "30": "Last 30 days"
+            }
+            date_filter = st.selectbox(
                 "Date range",
-                [7, 14, 30],
-                format_func=lambda x: f"Last {x} days"
+                list(date_options.keys()),
+                format_func=lambda x: date_options[x]
             )
         
         if st.button("🔄 Fetch Orders", use_container_width=True):
             try:
-                with st.spinner(f"Fetching orders from last {days_filter} days..."):
-                    orders_data = api_get_orders(st.session_state.api_token, status=order_status, days=days_filter)
+                with st.spinner(f"Fetching orders ({date_options[date_filter]})..."):
+                    orders_data = api_get_orders(st.session_state.api_token, status=order_status, date_filter=date_filter)
                     orders = orders_data.get("data", [])
                     
                     if orders:

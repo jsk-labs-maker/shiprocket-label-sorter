@@ -158,11 +158,23 @@ def api_authenticate(email: str, password: str) -> dict:
     return response.json()
 
 
-def api_get_orders(token: str, status: str = "new", per_page: int = 50) -> dict:
-    """Fetch orders by status."""
+def api_get_orders(token: str, status: str = "new", per_page: int = 50, days: int = 7) -> dict:
+    """Fetch orders by status, filtered to last N days."""
+    from datetime import datetime, timedelta
+    
     url = "https://apiv2.shiprocket.in/v1/external/orders"
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    params = {"filter": status, "per_page": per_page}
+    
+    # Calculate date range (last N days)
+    to_date = datetime.now().strftime("%Y-%m-%d")
+    from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    
+    params = {
+        "filter": status, 
+        "per_page": per_page,
+        "from": from_date,
+        "to": to_date
+    }
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
     return response.json()
@@ -299,16 +311,24 @@ with tab2:
         # Orders Section
         st.markdown("### 📋 Orders")
         
-        order_status = st.selectbox(
-            "Filter by status",
-            ["new", "ready_to_ship", "pickup_scheduled", "in_transit", "delivered"],
-            format_func=lambda x: x.replace("_", " ").title()
-        )
+        col1, col2 = st.columns(2)
+        with col1:
+            order_status = st.selectbox(
+                "Filter by status",
+                ["new", "ready_to_ship", "pickup_scheduled", "in_transit", "delivered"],
+                format_func=lambda x: x.replace("_", " ").title()
+            )
+        with col2:
+            days_filter = st.selectbox(
+                "Date range",
+                [7, 14, 30],
+                format_func=lambda x: f"Last {x} days"
+            )
         
         if st.button("🔄 Fetch Orders", use_container_width=True):
             try:
-                with st.spinner("Fetching orders..."):
-                    orders_data = api_get_orders(st.session_state.api_token, status=order_status)
+                with st.spinner(f"Fetching orders from last {days_filter} days..."):
+                    orders_data = api_get_orders(st.session_state.api_token, status=order_status, days=days_filter)
                     orders = orders_data.get("data", [])
                     
                     if orders:

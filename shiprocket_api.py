@@ -59,23 +59,31 @@ class ShiprocketAPI:
         
         return data
     
-    def get_orders(self, status: str = "NEW", per_page: int = 50, page: int = 1) -> Dict[str, Any]:
+    def get_orders(self, status: str = "NEW", per_page: int = 50, page: int = 1, days: int = 7) -> Dict[str, Any]:
         """
-        Fetch orders by status.
+        Fetch orders by status, filtered to last N days.
         
         Args:
             status: Order status (NEW, READY_TO_SHIP, PICKUP_SCHEDULED, etc.)
             per_page: Number of orders per page (max 50)
             page: Page number
+            days: Number of days to look back (default 7)
         
         Returns:
             Dict with orders data
         """
         url = f"{self.BASE_URL}/orders"
+        
+        # Calculate date range
+        to_date = datetime.now().strftime("%Y-%m-%d")
+        from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        
         params = {
             "filter": status.lower(),
             "per_page": per_page,
-            "page": page
+            "page": page,
+            "from": from_date,
+            "to": to_date
         }
         
         response = requests.get(url, headers=self._get_headers(), params=params)

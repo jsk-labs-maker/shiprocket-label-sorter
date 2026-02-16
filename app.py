@@ -352,12 +352,18 @@ with tab2:
                     
                     if orders:
                         st.session_state.orders = orders
+                        st.session_state.orders_status = order_status
+                        st.session_state.orders_fetched_at = datetime.now().strftime("%H:%M:%S")
                         st.success(f"Found **{len(orders)}** orders")
                     else:
                         st.info("No orders found with this status")
                         st.session_state.orders = []
             except Exception as e:
                 st.error(f"Error fetching orders: {str(e)}")
+        
+        # Show when data was fetched
+        if 'orders_fetched_at' in st.session_state and st.session_state.orders:
+            st.caption(f"📍 Data fetched at {st.session_state.orders_fetched_at} • Status: {st.session_state.get('orders_status', 'unknown').upper()}")
         
         # Display orders
         if 'orders' in st.session_state and st.session_state.orders:
@@ -406,7 +412,10 @@ with tab2:
                                     if result.get("awb_assign_status") == 1:
                                         awb_code = result.get("response", {}).get("data", {}).get("awb_code", "")
                                         courier_name = result.get("response", {}).get("data", {}).get("courier_name", "")
-                                        st.success(f"✅ Shipped via {courier_name}\nAWB: {awb_code}")
+                                        st.success(f"✅ Shipped via {courier_name} | AWB: {awb_code}")
+                                        # Clear orders to force refresh
+                                        st.session_state.orders = []
+                                        st.rerun()
                                     else:
                                         st.error("Failed to ship")
                                 except Exception as e:
@@ -451,6 +460,9 @@ with tab2:
                         st.success(f"✅ Shipped **{success_count}** orders successfully!")
                         if failed:
                             st.warning(f"⚠️ {len(failed)} orders failed")
+                        # Clear orders to force refresh on next fetch
+                        st.session_state.orders = []
+                        st.info("📋 Click 'Fetch Orders' to see updated list")
                     else:
                         st.warning("No valid shipments found")
             

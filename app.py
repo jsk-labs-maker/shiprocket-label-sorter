@@ -154,6 +154,12 @@ def api_authenticate(email: str, password: str) -> dict:
     """Authenticate with Shiprocket API."""
     url = "https://apiv2.shiprocket.in/v1/external/auth/login"
     response = requests.post(url, json={"email": email, "password": password})
+    
+    if response.status_code == 403:
+        raise requests.exceptions.HTTPError(f"403 Blocked: {response.json().get('message', 'Account blocked')}")
+    elif response.status_code == 401:
+        raise requests.exceptions.HTTPError("401 Unauthorized: Invalid credentials")
+    
     response.raise_for_status()
     return response.json()
 
@@ -296,8 +302,22 @@ with tab2:
                         st.session_state.api_email = email
                         st.success("✅ Connected successfully!")
                         st.rerun()
+                except requests.exceptions.HTTPError as e:
+                    error_msg = str(e)
+                    if "403" in error_msg or "blocked" in error_msg.lower():
+                        st.error("🔒 **Account Temporarily Blocked**")
+                        st.warning("""
+                        Too many failed login attempts. To fix:
+                        1. **Wait 15-30 minutes** and try again
+                        2. **Or reset password** on Shiprocket login page
+                        3. **Or contact Shiprocket support**
+                        """)
+                    elif "401" in error_msg:
+                        st.error("❌ **Invalid Credentials** — Check your email and password")
+                    else:
+                        st.error(f"❌ Authentication failed: {error_msg}")
                 except Exception as e:
-                    st.error(f"❌ Authentication failed: {str(e)}")
+                    st.error(f"❌ Connection error: {str(e)}")
     
     else:
         # Connected - Show dashboard
